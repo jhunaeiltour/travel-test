@@ -1,0 +1,511 @@
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 여행 심리 분석기 (통계+AI 실시간+기록)</title>
+    <style>
+        /* 기본 프레임워크 및 애니메이션 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f7fa; 
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+            word-break: keep-all; 
+        }
+
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 10% 20%, rgba(155, 89, 182, 0.05) 0%, transparent 50%),
+                        radial-gradient(circle at 90% 80%, rgba(253, 121, 168, 0.05) 0%, transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+
+        .container {
+            max-width: 1000px; margin: 0 auto;
+            background: #ffffff; border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            overflow: hidden; animation: slideUp 0.8s ease-out;
+            position: relative; z-index: 1;
+        }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 헤더 (히스토리 버튼 추가) */
+        .header {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 50%, #fd79a8 100%);
+            background-size: 200% 200%; animation: gradientShift 10s ease infinite;
+            color: white; text-align: center; padding: 50px 20px; position: relative;
+        }
+        @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; line-height: 1.3;}
+        .beta-badge { font-size: 1rem; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px; vertical-align: middle;}
+        
+        /* 인트로 화면 스타일 추가 */
+        .intro-section { text-align: center; padding: 60px 20px; animation: fadeIn 1s; }
+        .intro-icon { font-size: 5rem; margin-bottom: 20px; animation: float 3s ease-in-out infinite; }
+        .start-btn {
+            background: linear-gradient(135deg, #fd79a8, #6c5ce7); color: white;
+            border: none; padding: 20px 50px; border-radius: 40px; font-weight: 800; font-size: 1.3rem;
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; margin-top: 30px; box-shadow: 0 10px 20px rgba(108, 92, 231, 0.3);
+        }
+        .start-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(108, 92, 231, 0.4); }
+
+        .history-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+            color: white; padding: 8px 16px; border-radius: 20px;
+            cursor: pointer; font-weight: bold; transition: all 0.2s; backdrop-filter: blur(5px);
+        }
+        .history-btn:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
+
+        .content { padding: 40px; }
+        .section {
+            margin-bottom: 40px; padding: 35px; background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(108, 92, 231, 0.1);
+        }
+        .section h2 { color: #2c3e50; font-size: 1.6rem; margin-bottom: 25px; display: flex; align-items: center; gap: 12px; }
+        
+        .icon {
+            width: 42px; height: 42px; background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+            color: white; font-size: 1.2rem; flex-shrink: 0;
+        }
+
+        /* 질문 카드 */
+        .question-block { margin-bottom: 30px; padding: 25px; background: #fdfcff; border-radius: 16px; border-left: 4px solid #a29bfe; }
+        .question-title { font-size: 1.15rem; font-weight: 600; color: #2d3436; margin-bottom: 18px; line-height: 1.5; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .option-btn {
+            background: #ffffff; border: 2px solid #e0e0e0; padding: 20px 40px 20px 20px;
+            border-radius: 12px; cursor: pointer; text-align: left; font-size: 0.95rem; color: #636e72;
+            transition: all 0.2s ease; position: relative; display: flex; align-items: center; line-height: 1.5;
+        }
+        .option-btn:hover { border-color: #a29bfe; background: #f8f7ff; transform: translateY(-2px); }
+        .option-btn.selected { border-color: #6c5ce7; background: #f0efff; color: #2d3436; font-weight: 600; box-shadow: 0 4px 10px rgba(108, 92, 231, 0.15); }
+        .option-btn.selected::after { content: '✓'; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); color: #6c5ce7; font-weight: bold; font-size: 1.2rem; }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #6c5ce7, #fd79a8); color: white; border: none; padding: 18px 30px;
+            border-radius: 30px; font-weight: 600; font-size: 1.1rem; cursor: pointer; transition: transform 0.2s;
+            width: 100%; margin-top: 15px; display: block; letter-spacing: 0.5px;
+        }
+        .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(108, 92, 231, 0.3); }
+
+        /* 결과 화면 */
+        .results-container { display: none; animation: fadeIn 1s; }
+        .results-container.show { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; margin-bottom: 30px;}
+        .analysis-item { padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); background: #fff; }
+
+        .persona-card {
+            background: linear-gradient(135deg, #2d3436 0%, #1e272e 100%); color: white; text-align: center;
+            padding: 50px 30px; border-radius: 20px; margin-bottom: 35px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .persona-icon { font-size: 4.5rem; margin-bottom: 20px; animation: float 3s ease-in-out infinite; line-height: 1; }
+        .persona-title { font-size: 2.2rem; font-weight: 800; background: linear-gradient(90deg, #a29bfe, #fd79a8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+        .persona-desc { font-size: 1.15rem; opacity: 0.9; max-width: 80%; margin: 0 auto; }
+        .badge { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin: 5px; }
+        .badge.keyword { background: #f0efff; color: #6c5ce7; border: 1px solid #a29bfe; }
+        .badge.ai-badge { background: #fff0f5; color: #fd79a8; border: 1px solid #fd79a8; font-size: 0.8rem; margin-left: 10px; }
+
+        .dest-card {
+            display: flex; align-items: flex-start; gap: 18px; padding: 20px; background: #f8f9fa;
+            border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #fd79a8; transition: transform 0.2s;
+        }
+        .dest-card:hover { transform: translateX(5px); }
+        .dest-icon { font-size: 2.2rem; line-height: 1; margin-top: 2px; flex-shrink: 0; }
+        .dest-info h4 { color: #2c3e50; font-size: 1.1rem; margin: 0 0 6px 0; font-weight: 700; }
+        .dest-info p { color: #636e72; font-size: 0.95rem; margin: 0; }
+
+        /* 통계 패널 */
+        .stats-panel {
+            background: #fff; border-radius: 16px; padding: 25px; margin-top: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e0e0e0;
+        }
+        .stats-bar { width: 100%; height: 10px; background: #ecf0f1; border-radius: 5px; margin: 8px 0 15px; overflow: hidden; }
+        .stats-fill { height: 100%; background: linear-gradient(90deg, #6c5ce7, #a29bfe); border-radius: 5px; transition: width 1s; }
+
+        /* 모달 (나의 기록) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 1000;
+            display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-content {
+            background: white; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;
+            border-radius: 20px; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            transform: translateY(20px); transition: transform 0.3s;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .close-modal { float: right; cursor: pointer; font-size: 1.5rem; color: #999; }
+        .history-item { padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; }
+        .history-item:last-child { border-bottom: none; }
+        .history-date { font-size: 0.85rem; color: #999; }
+
+        /* 로딩 UI */
+        .loading { display: none; text-align: center; padding: 60px 20px; }
+        .spinner {
+            border: 4px solid rgba(108, 92, 231, 0.2); border-top: 4px solid #6c5ce7;
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header class="header">
+        <button class="history-btn" onclick="openHistoryModal()">📜 나의 기록</button>
+        <h1>🔮 AI 여행 심리 분석기 <span class="beta-badge">Pro</span></h1>
+        <p>무의식 분석, AI 실시간 맞춤 여행지 추천, 그리고 글로벌 통계까지.</p>
+    </header>
+
+    <!-- 인트로 섹션 추가 -->
+    <div id="intro-section" class="content intro-section">
+        <div class="intro-icon">🧳</div>
+        <h2 style="color: #2c3e50; font-size: 2rem; margin-bottom: 15px;">당신의 진짜 여행 자아는?</h2>
+        <p style="color: #636e72; font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px;">
+            8개의 간단한 질문으로 당신의 내면을 분석하고,<br>
+            현재 계절과 트렌드에 맞는 완벽한 여행지를 AI가 실시간으로 추천해 드립니다.
+        </p>
+        <div style="background: #f0efff; display: inline-block; padding: 10px 20px; border-radius: 12px; color: #6c5ce7; font-weight: bold; margin-bottom: 10px;">
+            ⏱️ 소요 시간: 약 1분
+        </div>
+        <br>
+        <button class="start-btn" onclick="startTest()">👉 테스트 시작하기</button>
+    </div>
+
+    <!-- 설문 섹션 (처음에는 숨김 처리) -->
+    <div id="survey-section" class="content" style="display: none;">
+        <div class="section">
+            <h2><span class="icon">🧭</span>나의 내면 나침반 찾기</h2>
+            <div id="questions-container"></div>
+            <button id="analyze-btn" class="analyze-btn" onclick="window.startAnalysis()">🔮 분석하고 결과 확인하기</button>
+        </div>
+    </div>
+
+    <div id="loading" class="loading content">
+        <div class="spinner"></div>
+        <h3 style="color:#6c5ce7; margin-bottom: 10px;" id="loading-title">데이터를 분석하고 있습니다...</h3>
+        <p style="color:#7f8c8d;" id="loading-desc">AI가 현재 날씨와 트렌드를 반영하여 실시간으로 여행지를 창작 중입니다.</p>
+    </div>
+
+    <div id="results-section" class="results-container content">
+        <div class="persona-card">
+            <div class="persona-icon" id="res-icon">✈️</div>
+            <h3 style="font-size: 1.2rem; opacity: 0.8; margin-bottom: 8px;">당신의 여행 페르소나는 (<span id="res-mbti"></span>)</h3>
+            <div class="persona-title" id="res-title"></div>
+            <p class="persona-desc" id="res-desc"></p>
+            <div style="margin-top: 25px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;" id="res-keywords"></div>
+        </div>
+
+        <div class="analysis-grid">
+            <div class="analysis-item" style="border-top: 5px solid #6c5ce7;">
+                <h3 style="color:#2c3e50; margin-bottom: 18px; font-size: 1.3rem;">🧠 심리 상태 분석</h3>
+                <p id="res-psychology" style="color: #4a4a4a; line-height: 1.7;"></p>
+                <div style="margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 12px; border-left: 4px solid #6c5ce7;">
+                    <strong style="color: #6c5ce7; display: block; margin-bottom: 8px;">💡 이런 여행 메이트가 좋아요!</strong>
+                    <p id="res-mate" style="margin: 0; font-size: 0.95rem; color: #4a4a4a;"></p>
+                </div>
+            </div>
+
+            <div class="analysis-item" style="border-top: 5px solid #fd79a8;">
+                <h3 style="color:#2c3e50; margin-bottom: 18px; font-size: 1.3rem;">
+                    ✈️ 실시간 AI 추천 <span class="badge ai-badge">Gemini AI 생성</span>
+                </h3>
+                <div id="res-destinations"></div>
+            </div>
+        </div>
+
+        <!-- 전체 통계 섹션 -->
+        <div class="stats-panel" id="stats-panel" style="display: none;">
+            <h3 style="color: #2c3e50; margin-bottom: 15px;">📊 글로벌 여행자 통계</h3>
+            <p style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px;">총 <strong id="total-users">0</strong>명이 테스트에 참여했습니다. 가장 많은 유형은 무엇일까요?</p>
+            <div id="stats-container"></div>
+        </div>
+
+        <div style="text-align:center; margin-top:30px;">
+            <button class="analyze-btn" style="background: linear-gradient(135deg, #b2bec3, #636e72); width: auto; display: inline-block; padding: 14px 35px;" onclick="location.reload()">🔄 다시 테스트하기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 히스토리 모달 -->
+<div class="modal-overlay" id="history-modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeHistoryModal()">×</span>
+        <h2 style="color:#6c5ce7; margin-bottom: 20px;">내 여행 심리 기록</h2>
+        <div id="history-list">
+            <p style="text-align:center; color:#999; padding: 20px;">아직 저장된 기록이 없거나 인증 서버와 연결되지 않았습니다.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase & Application Logic (ES Module) -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // 1. 환경 설정 및 초기화
+    let db, auth, currentUser;
+    let appId = typeof __app_id !== 'undefined' ? __app_id : 'default-travel-app';
+    const apiKey = ""; // Canvas 환경에서 자동 주입됨
+    
+    // Firebase 연결 시도
+    try {
+        const firebaseConfig = {
+            apiKey: "AIzaSyCMabK-kDyusaOSJYJLoK9kUDytQy-B--g",
+            authDomain: "naeiltour-8e37c.firebaseapp.com",
+            projectId: "naeiltour-8e37c",
+            storageBucket: "naeiltour-8e37c.firebasestorage.app",
+            messagingSenderId: "546653085772",
+            appId: "1:546653085772:web:08b87876a2de69c9b854e9",
+            measurementId: "G-11RV09TSP5"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // Auth 초기화 (에러 발생 시 앱 중단을 막기 위한 try-catch 강화)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch(tokenError) {
+                        console.warn("커스텀 토큰 인증 실패. 익명 로그인으로 자동 전환합니다.", tokenError);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch(e) { 
+                // console.error 대신 console.warn을 사용하여 Canvas 환경에서 빨간색 에러 팝업이 뜨는 것을 방지합니다.
+                console.warn("🔥 Firebase 인증 실패: 콘솔에서 '익명 로그인'이 켜져 있는지 확인해주세요. 데이터 저장 없이 로컬 모드로 실행됩니다.");
+                db = null; 
+                currentUser = null;
+            }
+        };
+        initAuth();
+        
+        onAuthStateChanged(auth, (user) => { 
+            currentUser = user; 
+            if(user && db) fetchHistory(); // 정상 로그인 및 DB 사용 가능할 때만 히스토리 로드
+        });
+    } catch(e) { 
+        console.warn("Firebase Init Failed - 로컬 모드로 실행합니다.", e); 
+        db = null;
+    }
+
+    // 질문 및 데이터 (기존 8개 유지)
+    const questions = [
+        { id: 'q1', title: "Q1. 여행지에서 완벽하게 알찬 하루를 보내고 숙소로 돌아왔다. 남은 저녁 시간은?", options: [ { text: "근처 야시장이나 펍에 나가서 현지의 밤을 끝까지 불태운다.", value: "E" }, { text: "깨끗하게 씻고 침대에 누워 편안하게 사진을 정리하며 쉰다.", value: "I" } ] },
+        { id: 'q2', title: "Q2. 조식 시간, 혼자 밥을 먹고 있는데 옆 테이블 여행객이 말을 건다.", options: [ { text: "\"어디서 오셨어요?\" 반갑게 대화하며 여행 정보와 꿀팁을 나눈다.", value: "E" }, { text: "친절하게 대답은 하지만, 얼른 먹고 조용히 내 일정을 시작하고 싶다.", value: "I" } ] },
+        { id: 'q3', title: "Q3. 여행 코스를 짤 때, 당신을 더 설레게 하는 설명은?", options: [ { text: "\"리뷰 1만개 돌파! 연간 100만 명이 찾는 검증된 랜드마크\"", value: "S" }, { text: "\"지도에도 잘 안 나오는, 영화 속 한 장면 같은 비밀스러운 골목\"", value: "N" } ] },
+        { id: 'q4', title: "Q4. 여행 중 마음에 드는 멋진 풍경을 마주했을 때 당신의 반응은?", options: [ { text: "\"우와! 사진이랑 똑같아! 빨리 인증샷 남기고 다음 장소 가자!\"", value: "S" }, { text: "\"와... 분위기 미쳤다...\" 가만히 풍경을 바라보며 감상에 젖는다.", value: "N" } ] },
+        { id: 'q5', title: "Q5. 친구가 여행 중 지갑을 잃어버렸다고 울먹인다. 당신의 첫 마디는?", options: [ { text: "\"어디서? 일단 카드 정지부터 하고 근처 경찰서 위치 찾아보자.\"", value: "T" }, { text: "\"헐 어떡해 ㅠㅠ 진짜 멘붕이겠다... 많이 놀랐지 일단 진정해 ㅠㅠ\"", value: "F" } ] },
+        { id: 'q6', title: "Q6. 여행지 맛집을 선택할 때 당신에게 더 중요한 기준은?", options: [ { text: "가격 대비 양, 이동 동선의 효율성, 위생 상태 등 객관적인 조건", value: "T" }, { text: "사장님의 친절함, 인테리어의 감성, 그 가게만의 특별한 스토리", value: "F" } ] },
+        { id: 'q7', title: "Q7. 여행 출발 일주일 전, 당신의 준비 상태는?", options: [ { text: "일자별 동선, 예약 바우처, 예비용 플랜B까지 완벽하게 세팅되어 있다.", value: "J" }, { text: "\"어디 갈지는 대충 찾아봤고... 짐은 전날 밤에 싸면 되지 뭐!\"", value: "P" } ] },
+        { id: 'q8', title: "Q8. 여행 중 갑자기 폭우가 쏟아져 계획했던 야외 코스를 못 가게 되었다.", options: [ { text: "\"이럴 줄 알고 실내 코스도 미리 찾아놨지! 바로 플랜B로 이동하자.\"", value: "J" }, { text: "\"비 오는 김에 뷰 좋은 카페나 가서 커피 마시면서 비멍이나 때리자!\"", value: "P" } ] }
+    ];
+
+    const personas = {
+        ESTJ: { icon: '📊', title: "'오차율 0%' 인간 엑셀러", desc: "시간 낭비는 용납할 수 없습니다. 완벽한 계획 하에 도장 깨기 하는 여행을 선호합니다.", keywords: ['효율우선', '랜드마크', '플랜A부터Z'], psychology: "예측 가능한 상황 안에서 알차게 시간을 보낼 때 최고의 성취감과 안정감을 느낍니다.", mate: "내가 짠 완벽한 계획에 잘 따라오며 약속을 지키는 사람", defaultDests: [{icon:'🗽', name:'미국 뉴욕', desc:'분 단위로 쪼개어 타임스퀘어 정복'}] },
+        ESTP: { icon: '🎢', title: "스릴 만점 액티비티 사냥꾼", desc: "지루한 건 딱 질색! 즉흥적으로 꽂히는 액티비티에 뛰어드는 행동파입니다.", keywords: ['아드레날린', '즉흥적', '핫플'], psychology: "몸으로 부딪히는 강렬한 자극에서 에너지를 얻습니다.", mate: "갑작스러운 제안에도 콜! 을 외치는 체력왕", defaultDests: [{icon:'🪂', name:'스위스 인터라켄', desc:'스카이다이빙 등 액티비티'}] },
+        ESFJ: { icon: '🙋‍♀️', title: "프로 여행 총무", desc: "동행을 챙기고, 모두가 만족할 만한 맛집을 찾아두는 다정한 여행자입니다.", keywords: ['배려왕', '유명맛집', '사진백만장'], psychology: "우리가 함께 즐거운가가 가장 중요합니다.", mate: "일정에 대해 격한 리액션을 해주는 사람", defaultDests: [{icon:'🏖️', name:'베트남 다낭', desc:'가성비 좋은 풀빌라와 마사지'}] },
+        ESFP: { icon: '💃', title: "어딜 가든 핵인싸", desc: "새로운 사람, 음악, 술! 현재를 열정적으로 즐기는 분위기 메이커입니다.", keywords: ['파티피플', '친화력갑', '즉흥여행'], psychology: "낯선 곳의 우연한 에피소드에 몸을 맡깁니다.", mate: "낯선 사람과도 건배하며 놀 수 있는 친구", defaultDests: [{icon:'🍹', name:'스페인 이비자', desc:'클럽과 해변에서 밤새 춤추기'}] },
+        ENTJ: { icon: '🚀', title: "여행 퀘스트 불도저", desc: "최단 동선, 최고 뷰포인트. 여행의 정수를 효율적으로 뽑아먹는 통솔자입니다.", keywords: ['목표지향', '효율끝판왕', '빅픽쳐'], psychology: "여행도 프로젝트처럼 가장 임팩트 있는 경험을 해내야 합니다.", mate: "목표를 향해 거침없는 페이스를 맞춰주는 사람", defaultDests: [{icon:'🏰', name:'프랑스 파리', desc:'루브르부터 에펠탑까지 완벽 정복'}] },
+        ENTP: { icon: '🧭', title: "호기심 탐험가", desc: "호기심 하나로 일정을 엎고 떠나는 즉흥의 아이콘입니다.", keywords: ['즉흥적', '도전정신', '마이웨이'], psychology: "뻔한 관광지보다 낯선 식당이나 독특한 장소를 선호합니다.", mate: "갑자기 일정을 바꿔도 재밌겠다고 해주는 사람", defaultDests: [{icon:'🏜️', name:'이집트 카이로', desc:'피라미드와 복잡한 미로 탐험'}] },
+        ENFJ: { icon: '💖', title: "로맨틱 감성 가이드", desc: "여행지의 감성에 젖으면서 사람을 챙기는 따뜻함을 지녔습니다.", keywords: ['감성충만', '스토리텔러', '낭만'], psychology: "장소의 아름다움과 함께 나누는 교감이 여행의 완성입니다.", mate: "노을을 보며 깊은 감상을 나눌 수 있는 사람", defaultDests: [{icon:'🍷', name:'포르투갈 포르투', desc:'강변에서 와인 마시며 감성 젖기'}] },
+        ENFP: { icon: '🕊️', title: "자유로운 보헤미안", desc: "비행기 표만 끊고 떠납니다. 우연과 감동을 사랑하는 자유 영혼입니다.", keywords: ['자유영혼', '즉흥감성', '인간댕댕이'], psychology: "계획대로 흘러가는 여행은 답답합니다. 마음 끌리는 대로 행동합니다.", mate: "길을 잃어도 오히려 좋다고 웃어주는 사람", defaultDests: [{icon:'☕', name:'태국 치앙마이', desc:'정해진 일정 없이 카페와 골목 누비기'}] },
+        ISTJ: { icon: '🧊', title: "완벽한 휴식의 정석", desc: "리뷰를 정독해 찾아낸 최고의 숙소에서 계획된 평화를 누립니다.", keywords: ['리뷰정독', '철저한준비', '완벽휴식'], psychology: "돌발 상황은 스트레스. 검증된 곳에서 에너지를 채웁니다.", mate: "규칙을 잘 지키고 무리한 요구를 안 하는 사람", defaultDests: [{icon:'🌴', name:'사이판', desc:'프라이빗 리조트 호캉스'}] },
+        ISTP: { icon: '🕶️', title: "마이웨이 관찰자", desc: "남들 다 가는 뻔한 곳보단 관심사에 딱 맞는 곳을 찾습니다.", keywords: ['마이웨이', '관심사집중', '현실주의'], psychology: "혼자 훌쩍 떠나 좋아하는 것에만 집중하고 쿨하게 돌아옵니다.", mate: "각자의 시간을 존중해주는 쿨한 사람", defaultDests: [{icon:'🎮', name:'일본 도쿄', desc:'관심사에 맞춰진 동선으로 움직이기'}] },
+        ISFJ: { icon: '🍵', title: "조용한 힐링러", desc: "따뜻한 곳에서 소수와 깊은 대화를 나누는 것을 즐깁니다.", keywords: ['안정감', '소확행', '배려'], psychology: "익숙하고 편안한 분위기 속에서 안정감을 느낍니다.", mate: "조용하고 다정하게 대화를 나눌 수 있는 사람", defaultDests: [{icon:'♨️', name:'일본 유후인', desc:'조용한 료칸에서 따뜻한 온천욕'}] },
+        ISFP: { icon: '🛋️', title: "누워있는 예술가", desc: "뷰가 좋은 곳에 누워 여유를 만끽하는 것이 최고입니다.", keywords: ['귀차니즘', '감각적', '여유로움'], psychology: "감각적 즐거움은 사랑하지만 돌아다니는 건 귀찮습니다.", mate: "하루 종일 누워있어도 휴식이라 공감하는 사람", defaultDests: [{icon:'🏝️', name:'몰디브', desc:'바다 위 빌라에서 뒹굴거리기'}] },
+        INTJ: { icon: '♟️', title: "고독한 마스터", desc: "그 나라의 역사, 건축 등을 깊이 탐구하는 지적 여행을 즐깁니다.", keywords: ['지적탐구', '역사/문화', '치밀한계획'], psychology: "방문 전 배경지식을 완벽히 습득한 후 떠납니다.", mate: "역사나 문화에 대해 깊이 토론할 지적인 사람", defaultDests: [{icon:'🏺', name:'그리스 아테네', desc:'서양 문명의 근원 고찰하기'}] },
+        INTP: { icon: '🌌', title: "지적 호기심 몽상가", desc: "관심 주제가 생기면 무계획으로 날아갑니다.", keywords: ['너드미', '관심사몰빵', '무계획'], psychology: "특정 테마가 아니면 관광 명소에는 관심 없습니다.", mate: "박물관에 박혀 있어도 쿨하게 놔두는 사람", defaultDests: [{icon:'🏛️', name:'영국 대영박물관', desc:'오직 박물관에서만 3일 보내기'}] },
+        INFJ: { icon: '🔮', title: "조용한 감성 수집가", desc: "스토리가 있는 조용한 풍경 속에서 깊은 사색을 사랑합니다.", keywords: ['사색', '스토리텔링', '완벽주의'], psychology: "장소의 분위기와 의미를 흡수하며 내면을 채웁니다.", mate: "침묵이 주는 묵직한 감동을 나눌 수 있는 사람", defaultDests: [{icon:'🏔️', name:'스위스 체르마트', desc:'조용한 산악 마을에서 사색하기'}] },
+        INFP: { icon: '🎨', title: "운명적 감성 방랑자", desc: "낯선 골목, 우연히 마주친 책방에서 여행의 의미를 발견합니다.", keywords: ['감성충만', '운명론자', '소확행'], psychology: "시간 단위의 계획은 감성을 메마르게 합니다.", mate: "예쁜 꽃 앞에서 사진을 오래 찍어도 미소 짓는 사람", defaultDests: [{icon:'📚', name:'포르투갈 신트라', desc:'동화 같은 마을에서 몽환적 기분 느끼기'}] }
+    };
+
+    let answers = {};
+
+    // 인트로에서 테스트 화면으로 넘어가는 함수 추가
+    window.startTest = () => {
+        document.getElementById('intro-section').style.display = 'none';
+        document.getElementById('survey-section').style.display = 'block';
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    };
+
+    function renderQuestions() {
+        const container = document.getElementById('questions-container');
+        questions.forEach(q => {
+            const opts = q.options.map(o => `<div class="option-btn" onclick="window.selectOption('${q.id}', '${o.value}', this)">${o.text}</div>`).join('');
+            container.innerHTML += `<div class="question-block"><div class="question-title">${q.title}</div><div class="options-grid" id="grid-${q.id}">${opts}</div></div>`;
+        });
+    }
+
+    window.selectOption = (qId, val, el) => {
+        const btns = document.getElementById(`grid-${qId}`).querySelectorAll('.option-btn');
+        btns.forEach(b => b.classList.remove('selected'));
+        el.classList.add('selected');
+        answers[qId] = val;
+    };
+
+    window.startAnalysis = async () => {
+        if(Object.keys(answers).length < questions.length) return alert("모든 질문에 답해주세요!");
+        
+        document.getElementById('survey-section').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+        window.scrollTo({top:0, behavior:'smooth'});
+
+        // 1. MBTI 계산
+        let typeE = (answers['q1'] === 'E' ? 1 : 0) + (answers['q2'] === 'E' ? 1 : 0) > 0 ? 'E' : 'I';
+        let typeS = (answers['q3'] === 'S' ? 1 : 0) + (answers['q4'] === 'S' ? 1 : 0) > 0 ? 'S' : 'N';
+        let typeT = (answers['q5'] === 'T' ? 1 : 0) + (answers['q6'] === 'T' ? 1 : 0) > 0 ? 'T' : 'F';
+        let typeJ = (answers['q7'] === 'J' ? 1 : 0) + (answers['q8'] === 'J' ? 1 : 0) > 0 ? 'J' : 'P';
+        const finalType = typeE + typeS + typeT + typeJ;
+        const result = personas[finalType] || personas['INFP'];
+
+        // 2. DB 저장 및 통계 업데이트 (비동기 처리)
+        // db 객체가 정상적으로 초기화 되었을 때만 실행되도록 보호 (로컬 모드 대응)
+        if (db && currentUser) {
+            try {
+                // 히스토리 저장
+                await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history'), {
+                    mbti: finalType, title: result.title, timestamp: Date.now()
+                });
+                // 글로벌 통계 +1
+                const statsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'summary');
+                await setDoc(statsRef, {
+                    total: increment(1),
+                    [`types.${finalType}`]: increment(1)
+                }, { merge: true });
+            } catch(e) { console.error("DB Save Error", e); }
+        }
+
+        // 3. Gemini AI로 실시간 맞춤 여행지 추천 받기
+        let aiDestinations = result.defaultDests; // 기본값
+        if (apiKey) {
+            try {
+                const currentMonth = new Date().getMonth() + 1;
+                const prompt = `당신은 세계 최고의 여행 심리 분석가입니다.
+사용자의 여행 페르소나는 ${finalType} (${result.title}: ${result.desc}) 입니다.
+현재 ${currentMonth}월의 날씨와 글로벌 여행 트렌드를 반영하여, 이 페르소나의 성향에 완벽히 부합하는 해외 여행지 3곳을 추천해주세요.
+반드시 아래 JSON 스키마에 맞게 응답하세요. 한국어로 작성하세요.
+{"destinations": [{"name": "도시명, 국가명", "icon": "관련 이모지 1개", "desc": "왜 이 페르소나와 이 계절에 딱 맞는지 구체적인 이유 1줄"}]}`;
+                
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+                const aiData = await response.json();
+                const text = aiData.candidates[0].content.parts[0].text;
+                aiDestinations = JSON.parse(text).destinations;
+            } catch(e) { console.error("AI Fetch Error, using fallback", e); }
+        }
+
+        // 4. 통계 불러오기
+        let statsHtml = '';
+        if (db) {
+            try {
+                const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'summary'));
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('total-users').innerText = data.total || 0;
+                    
+                    // 정렬 및 UI 생성
+                    const typesArr = Object.entries(data.types || {}).sort((a,b)=>b[1]-a[1]).slice(0, 3);
+                    statsHtml = typesArr.map(([type, count]) => {
+                        const pct = Math.round((count / data.total) * 100);
+                        return `
+                            <div style="margin-bottom:12px;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+                                    <strong>${type} (${personas[type]?.title || '알수없음'})</strong> <span>${pct}% (${count}명)</span>
+                                </div>
+                                <div class="stats-bar"><div class="stats-fill" style="width: ${pct}%;"></div></div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('stats-panel').style.display = 'block';
+                }
+            } catch(e) { console.log("Stats fetch error"); }
+        } else {
+            // DB 미연결 시 (로컬 모드) 통계 패널 숨김 처리
+            document.getElementById('stats-panel').style.display = 'none';
+        }
+
+        renderResults(finalType, result, aiDestinations, statsHtml);
+    };
+
+    function renderResults(mbti, data, dests, statsHtml) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('results-section').classList.add('show');
+
+        document.getElementById('res-mbti').innerText = mbti;
+        document.getElementById('res-icon').innerText = data.icon;
+        document.getElementById('res-title').innerText = data.title;
+        document.getElementById('res-desc').innerText = data.desc;
+        document.getElementById('res-keywords').innerHTML = data.keywords.map(k=>`<span class="badge keyword">#${k}</span>`).join('');
+        document.getElementById('res-psychology').innerText = data.psychology;
+        document.getElementById('res-mate').innerText = data.mate;
+
+        document.getElementById('res-destinations').innerHTML = dests.map(d => `
+            <div class="dest-card">
+                <div class="dest-icon">${d.icon}</div>
+                <div class="dest-info"><h4>${d.name}</h4><p>${d.desc}</p></div>
+            </div>
+        `).join('');
+
+        if(statsHtml) document.getElementById('stats-container').innerHTML = statsHtml;
+    }
+
+    // 히스토리 모달 기능
+    window.openHistoryModal = () => document.getElementById('history-modal').classList.add('active');
+    window.closeHistoryModal = () => document.getElementById('history-modal').classList.remove('active');
+
+    async function fetchHistory() {
+        if(!db || !currentUser) return;
+        try {
+            // 단순 쿼리로 전부 가져온 후 JS에서 정렬 (Firestore 복합 쿼리 오류 방지)
+            const q = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
+            const snapshot = await getDocs(q);
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            
+            if(items.length > 0) {
+                // 시간 역순 정렬
+                items.sort((a,b) => b.timestamp - a.timestamp);
+                document.getElementById('history-list').innerHTML = items.map(i => `
+                    <div class="history-item">
+                        <div class="icon" style="width:40px;height:40px;font-size:1rem;">${personas[i.mbti]?.icon||'✈️'}</div>
+                        <div>
+                            <strong style="color:#2c3e50;">${i.mbti} : ${i.title}</strong>
+                            <div class="history-date">${new Date(i.timestamp).toLocaleString()}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch(e) { console.error("History fetch error", e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', renderQuestions);
+</script>
+</body>
+</html>
