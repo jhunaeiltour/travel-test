@@ -42,7 +42,12 @@
         }
         @keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         .header h1 { font-size: 2.5rem; margin-bottom: 10px; line-height: 1.3;}
-        .beta-badge { font-size: 1rem; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px; vertical-align: middle;}
+        
+        .beta-badge { 
+            font-size: 1rem; background: rgba(255,255,255,0.2); padding: 4px 12px; 
+            border-radius: 12px; vertical-align: middle; cursor: pointer; transition: 0.2s;
+        }
+        .beta-badge:hover { background: rgba(255,255,255,0.4); transform: scale(1.05); }
         
         /* 인트로 화면 스타일 추가 */
         .intro-section { text-align: center; padding: 60px 20px; animation: fadeIn 1s; }
@@ -132,10 +137,10 @@
         .stats-bar { width: 100%; height: 10px; background: #ecf0f1; border-radius: 5px; margin: 8px 0 15px; overflow: hidden; }
         .stats-fill { height: 100%; background: linear-gradient(90deg, #6c5ce7, #a29bfe); border-radius: 5px; transition: width 1s; }
 
-        /* 모달 (나의 기록) */
+        /* 모달 공통 (나의 기록 & 관리자) */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 1000;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 1000;
             display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s;
         }
         .modal-overlay.active { display: flex; opacity: 1; }
@@ -149,6 +154,12 @@
         .history-item { padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; }
         .history-item:last-child { border-bottom: none; }
         .history-date { font-size: 0.85rem; color: #999; }
+
+        /* 관리자 테이블 스타일 */
+        .admin-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        .admin-table th, .admin-table td { border-bottom: 1px solid #eee; padding: 12px 8px; text-align: left; }
+        .admin-table th { background: #f8f9fa; color: #6c5ce7; font-weight: 600; position: sticky; top: 0; }
+        .admin-table tr:hover { background: #f0efff; }
 
         /* 로딩 UI */
         .loading { display: none; text-align: center; padding: 60px 20px; }
@@ -166,7 +177,7 @@
 <div class="container">
     <header class="header">
         <button class="history-btn" onclick="openHistoryModal()">📜 나의 기록</button>
-        <h1>🔮 AI 여행 심리 분석기 <span class="beta-badge">Pro</span></h1>
+        <h1>🔮 AI 여행 심리 분석기 <span class="beta-badge" onclick="openAdminModal()" title="관리자 대시보드 열기">Pro</span></h1>
         <p>무의식 분석, AI 실시간 맞춤 여행지 추천, 그리고 글로벌 통계까지.</p>
     </header>
 
@@ -240,13 +251,36 @@
     </div>
 </div>
 
-<!-- 히스토리 모달 -->
+<!-- 히스토리 모달 (사용자 전용) -->
 <div class="modal-overlay" id="history-modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeHistoryModal()">×</span>
         <h2 style="color:#6c5ce7; margin-bottom: 20px;">내 여행 심리 기록</h2>
         <div id="history-list">
             <p style="text-align:center; color:#999; padding: 20px;">아직 저장된 기록이 없거나 인증 서버와 연결되지 않았습니다.</p>
+        </div>
+    </div>
+</div>
+
+<!-- 관리자 대시보드 모달 -->
+<div class="modal-overlay" id="admin-modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <span class="close-modal" onclick="closeAdminModal()">×</span>
+        <h2 style="color:#2c3e50; margin-bottom: 10px;">👑 관리자 대시보드</h2>
+        <p style="color:#7f8c8d; font-size:0.9rem; margin-bottom: 20px;">실시간으로 전체 사용자의 테스트 결과 로그를 확인합니다.</p>
+        <div style="max-height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 10px;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">시간</th>
+                        <th style="width: 80px;">유형</th>
+                        <th>도출된 페르소나</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-log-list">
+                    <tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">데이터를 불러오는 중...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -278,7 +312,6 @@
         auth = getAuth(app);
         db = getFirestore(app);
 
-        // Auth 초기화 (에러 발생 시 앱 중단을 막기 위한 try-catch 강화)
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -292,7 +325,6 @@
                     await signInAnonymously(auth);
                 }
             } catch(e) { 
-                // console.error 대신 console.warn을 사용하여 Canvas 환경에서 빨간색 에러 팝업이 뜨는 것을 방지합니다.
                 console.warn("🔥 Firebase 인증 실패: 콘솔에서 '익명 로그인'이 켜져 있는지 확인해주세요. 데이터 저장 없이 로컬 모드로 실행됩니다.");
                 db = null; 
                 currentUser = null;
@@ -302,14 +334,14 @@
         
         onAuthStateChanged(auth, (user) => { 
             currentUser = user; 
-            if(user && db) fetchHistory(); // 정상 로그인 및 DB 사용 가능할 때만 히스토리 로드
+            if(user && db) fetchHistory(); 
         });
     } catch(e) { 
         console.warn("Firebase Init Failed - 로컬 모드로 실행합니다.", e); 
         db = null;
     }
 
-    // 질문 및 데이터 (기존 8개 유지)
+    // 질문 및 데이터
     const questions = [
         { id: 'q1', title: "Q1. 여행지에서 완벽하게 알찬 하루를 보내고 숙소로 돌아왔다. 남은 저녁 시간은?", options: [ { text: "근처 야시장이나 펍에 나가서 현지의 밤을 끝까지 불태운다.", value: "E" }, { text: "깨끗하게 씻고 침대에 누워 편안하게 사진을 정리하며 쉰다.", value: "I" } ] },
         { id: 'q2', title: "Q2. 조식 시간, 혼자 밥을 먹고 있는데 옆 테이블 여행객이 말을 건다.", options: [ { text: "\"어디서 오셨어요?\" 반갑게 대화하며 여행 정보와 꿀팁을 나눈다.", value: "E" }, { text: "친절하게 대답은 하지만, 얼른 먹고 조용히 내 일정을 시작하고 싶다.", value: "I" } ] },
@@ -342,7 +374,6 @@
 
     let answers = {};
 
-    // 인트로에서 테스트 화면으로 넘어가는 함수 추가
     window.startTest = () => {
         document.getElementById('intro-section').style.display = 'none';
         document.getElementById('survey-section').style.display = 'block';
@@ -371,7 +402,6 @@
         document.getElementById('loading').style.display = 'block';
         window.scrollTo({top:0, behavior:'smooth'});
 
-        // 1. MBTI 계산
         let typeE = (answers['q1'] === 'E' ? 1 : 0) + (answers['q2'] === 'E' ? 1 : 0) > 0 ? 'E' : 'I';
         let typeS = (answers['q3'] === 'S' ? 1 : 0) + (answers['q4'] === 'S' ? 1 : 0) > 0 ? 'S' : 'N';
         let typeT = (answers['q5'] === 'T' ? 1 : 0) + (answers['q6'] === 'T' ? 1 : 0) > 0 ? 'T' : 'F';
@@ -379,15 +409,19 @@
         const finalType = typeE + typeS + typeT + typeJ;
         const result = personas[finalType] || personas['INFP'];
 
-        // 2. DB 저장 및 통계 업데이트 (비동기 처리)
-        // db 객체가 정상적으로 초기화 되었을 때만 실행되도록 보호 (로컬 모드 대응)
         if (db && currentUser) {
             try {
-                // 히스토리 저장
+                // 개인 히스토리 저장
                 await addDoc(collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history'), {
                     mbti: finalType, title: result.title, timestamp: Date.now()
                 });
-                // 글로벌 통계 +1
+                
+                // 🆕 글로벌 전체 로그(관리자용) 저장 추가
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'global_logs'), {
+                    mbti: finalType, title: result.title, timestamp: Date.now()
+                });
+
+                // 글로벌 통계 숫자 +1
                 const statsRef = doc(db, 'artifacts', appId, 'public', 'data', 'stats', 'summary');
                 await setDoc(statsRef, {
                     total: increment(1),
@@ -396,8 +430,7 @@
             } catch(e) { console.error("DB Save Error", e); }
         }
 
-        // 3. Gemini AI로 실시간 맞춤 여행지 추천 받기
-        let aiDestinations = result.defaultDests; // 기본값
+        let aiDestinations = result.defaultDests;
         if (apiKey) {
             try {
                 const currentMonth = new Date().getMonth() + 1;
@@ -418,10 +451,9 @@
                 const aiData = await response.json();
                 const text = aiData.candidates[0].content.parts[0].text;
                 aiDestinations = JSON.parse(text).destinations;
-            } catch(e) { console.error("AI Fetch Error, using fallback", e); }
+            } catch(e) { console.error("AI Fetch Error", e); }
         }
 
-        // 4. 통계 불러오기
         let statsHtml = '';
         if (db) {
             try {
@@ -430,7 +462,6 @@
                     const data = docSnap.data();
                     document.getElementById('total-users').innerText = data.total || 0;
                     
-                    // 정렬 및 UI 생성
                     const typesArr = Object.entries(data.types || {}).sort((a,b)=>b[1]-a[1]).slice(0, 3);
                     statsHtml = typesArr.map(([type, count]) => {
                         const pct = Math.round((count / data.total) * 100);
@@ -447,7 +478,6 @@
                 }
             } catch(e) { console.log("Stats fetch error"); }
         } else {
-            // DB 미연결 시 (로컬 모드) 통계 패널 숨김 처리
             document.getElementById('stats-panel').style.display = 'none';
         }
 
@@ -476,21 +506,19 @@
         if(statsHtml) document.getElementById('stats-container').innerHTML = statsHtml;
     }
 
-    // 히스토리 모달 기능
+    // 히스토리 모달 (개인)
     window.openHistoryModal = () => document.getElementById('history-modal').classList.add('active');
     window.closeHistoryModal = () => document.getElementById('history-modal').classList.remove('active');
 
     async function fetchHistory() {
         if(!db || !currentUser) return;
         try {
-            // 단순 쿼리로 전부 가져온 후 JS에서 정렬 (Firestore 복합 쿼리 오류 방지)
             const q = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
             const snapshot = await getDocs(q);
             let items = [];
             snapshot.forEach(doc => items.push(doc.data()));
             
             if(items.length > 0) {
-                // 시간 역순 정렬
                 items.sort((a,b) => b.timestamp - a.timestamp);
                 document.getElementById('history-list').innerHTML = items.map(i => `
                     <div class="history-item">
@@ -504,6 +532,49 @@
             }
         } catch(e) { console.error("History fetch error", e); }
     }
+
+    // 👑 관리자 대시보드 모달 (전체 로그 조회)
+    window.openAdminModal = async () => {
+        document.getElementById('admin-modal').classList.add('active');
+        const logList = document.getElementById('admin-log-list');
+        
+        if(!db) {
+            logList.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">데이터베이스에 연결되지 않았습니다.</td></tr>';
+            return;
+        }
+        
+        try {
+            // 전체 로그 컬렉션에서 데이터 가져오기
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'global_logs');
+            const snapshot = await getDocs(q);
+            let items = [];
+            snapshot.forEach(doc => items.push(doc.data()));
+            
+            if(items.length > 0) {
+                // 자바스크립트 메모리 상에서 최신순 정렬 (복합 인덱스 오류 방지)
+                items.sort((a,b) => b.timestamp - a.timestamp);
+                
+                logList.innerHTML = items.map(i => {
+                    const date = new Date(i.timestamp);
+                    const formattedDate = `${date.getMonth()+1}/${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+                    return `
+                        <tr>
+                            <td style="color:#7f8c8d;">${formattedDate}</td>
+                            <td><span style="background:#f0efff; color:#6c5ce7; padding:4px 8px; border-radius:8px; font-weight:bold; font-size:0.8rem;">${i.mbti}</span></td>
+                            <td style="color:#2c3e50;">${i.title}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                logList.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:#999;">아직 누적된 테스트 결과가 없습니다.</td></tr>';
+            }
+        } catch(e) { 
+            console.error("Admin fetch error", e); 
+            logList.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">로그를 불러오는데 실패했습니다.</td></tr>';
+        }
+    };
+    
+    window.closeAdminModal = () => document.getElementById('admin-modal').classList.remove('active');
 
     document.addEventListener('DOMContentLoaded', renderQuestions);
 </script>
