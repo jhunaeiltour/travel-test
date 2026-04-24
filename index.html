@@ -264,7 +264,19 @@
 
 <!-- 관리자 대시보드 모달 -->
 <div class="modal-overlay" id="admin-modal">
-    <div class="modal-content" style="max-width: 800px;">
+    <!-- 🔒 관리자 인증 화면 추가 -->
+    <div class="modal-content" id="admin-auth-content" style="max-width: 400px; text-align: center;">
+        <span class="close-modal" onclick="closeAdminModal()">×</span>
+        <h2 style="color:#2c3e50; margin-bottom: 10px;">🔒 관리자 인증</h2>
+        <p style="color:#7f8c8d; font-size:0.9rem; margin-bottom: 20px;">대시보드에 접근하려면 비밀번호가 필요합니다.</p>
+        <input type="password" id="admin-pw" placeholder="비밀번호 입력" style="padding: 12px; width: 80%; border-radius: 8px; border: 1px solid #bdc3c7; margin-bottom: 15px; outline: none;">
+        <br>
+        <button class="analyze-btn" style="width: auto; padding: 12px 30px; display: inline-block; margin-top:0;" onclick="window.verifyAdmin()">확인</button>
+        <p id="admin-error" style="color:#e74c3c; font-size: 0.9rem; margin-top: 15px; display: none;">비밀번호가 일치하지 않습니다.</p>
+    </div>
+
+    <!-- 👑 실제 데이터 화면 (기본은 숨김 처리) -->
+    <div class="modal-content" id="admin-data-content" style="max-width: 800px; display: none;">
         <span class="close-modal" onclick="closeAdminModal()">×</span>
         <h2 style="color:#2c3e50; margin-bottom: 10px;">👑 관리자 대시보드</h2>
         <p style="color:#7f8c8d; font-size:0.9rem; margin-bottom: 20px;">실시간으로 전체 사용자의 테스트 결과 로그를 확인합니다.</p>
@@ -533,9 +545,29 @@
         } catch(e) { console.error("History fetch error", e); }
     }
 
-    // 👑 관리자 대시보드 모달 (전체 로그 조회)
-    window.openAdminModal = async () => {
+    // 👑 관리자 대시보드 로직 (비밀번호 인증 추가)
+    window.openAdminModal = () => {
         document.getElementById('admin-modal').classList.add('active');
+        // 인증 화면 띄우기, 데이터 화면 숨기기
+        document.getElementById('admin-auth-content').style.display = 'block';
+        document.getElementById('admin-data-content').style.display = 'none';
+        document.getElementById('admin-pw').value = '';
+        document.getElementById('admin-error').style.display = 'none';
+    };
+
+    window.verifyAdmin = () => {
+        const pw = document.getElementById('admin-pw').value;
+        // 🌟 아래 "0000" 자리에 원하시는 관리자 비밀번호를 설정하세요!
+        if(pw === "0000") { 
+            document.getElementById('admin-auth-content').style.display = 'none';
+            document.getElementById('admin-data-content').style.display = 'block';
+            loadAdminData(); // 비밀번호 맞으면 데이터 불러오기
+        } else {
+            document.getElementById('admin-error').style.display = 'block'; // 틀리면 에러 표시
+        }
+    };
+
+    async function loadAdminData() {
         const logList = document.getElementById('admin-log-list');
         
         if(!db) {
@@ -551,7 +583,7 @@
             snapshot.forEach(doc => items.push(doc.data()));
             
             if(items.length > 0) {
-                // 자바스크립트 메모리 상에서 최신순 정렬 (복합 인덱스 오류 방지)
+                // 자바스크립트 메모 상에서 최신순 정렬
                 items.sort((a,b) => b.timestamp - a.timestamp);
                 
                 logList.innerHTML = items.map(i => {
@@ -572,7 +604,7 @@
             console.error("Admin fetch error", e); 
             logList.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">로그를 불러오는데 실패했습니다.</td></tr>';
         }
-    };
+    }
     
     window.closeAdminModal = () => document.getElementById('admin-modal').classList.remove('active');
 
